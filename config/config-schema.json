@@ -53,6 +53,10 @@
         "email": {
           "type": "string",
           "description": "Email address to send digest to (only for email method)"
+        },
+        "obsidianFolder": {
+          "type": "string",
+          "description": "Absolute path to Obsidian vault folder for saving digest as markdown file. Filename uses date (YYYY-MM-DD.md), with numeric suffix if duplicate exists (YYYY-MM-DD_02.md)"
         }
       }
     },

@@ -113,6 +113,24 @@ Add the key to the .env file.
 Set `delivery.method` to `"stdout"`. Tell them: "No problem — just type /ai
 whenever you want your digest. No automatic delivery will be set up."
 
+### Step 3b: Obsidian Save (Optional)
+
+After delivery method is chosen, ask:
+
+"Would you also like to save each digest to your Obsidian vault? If yes, tell me
+the folder path (e.g. /Users/you/ObsidianVault/DailyNotes)."
+
+**If yes:** Set `delivery.obsidianFolder` to the path they provide. Verify it exists:
+```bash
+ls -d "<their path>"
+```
+If it doesn't exist, ask them to create it first or provide a different path.
+
+**If no:** Skip. No `obsidianFolder` field in config.
+
+Filenames use the date: `YYYY-MM-DD.md`. If a file with that name already exists,
+the script adds a numeric suffix: `YYYY-MM-DD_02.md`, `YYYY-MM-DD_03.md`, etc.
+
 ### Step 4: Language
 
 Ask: "What language do you prefer for your digest?"
@@ -178,7 +196,8 @@ cat > ~/.follow-builders/config.json << 'CFGEOF'
   "delivery": {
     "method": "<stdout, telegram, or email>",
     "chatId": "<telegram chat ID, only if telegram>",
-    "email": "<email address, only if email>"
+    "email": "<email address, only if email>",
+    "obsidianFolder": "<absolute path to Obsidian vault folder, only if user opted in>"
   },
   "onboardingComplete": true
 }
@@ -407,6 +426,17 @@ If delivery fails, show the digest in the terminal as fallback.
 **If "stdout" (default):**
 Just output the digest directly.
 
+**Obsidian save (optional, works with any delivery method):**
+If `config.delivery.obsidianFolder` is set, the deliver script automatically saves
+the digest as a markdown file in that folder. The agent does NOT need to handle this
+separately — `deliver.js` does it after the primary delivery method.
+
+If delivering via stdout (no deliver.js call), save manually:
+```bash
+mkdir -p "<obsidianFolder>"
+echo '<your digest text>' > "<obsidianFolder>/$(date +%Y-%m-%d).md"
+```
+
 ---
 
 ## Configuration Handling
@@ -431,6 +461,8 @@ open an issue at https://github.com/zarazhangrui/follow-builders."
 - "Switch to Telegram/email" → Update `delivery.method` in config.json, guide user through setup if needed
 - "Change my email" → Update `delivery.email` in config.json
 - "Send to this chat instead" → Set `delivery.method` to "stdout"
+- "Save to Obsidian" / "Set Obsidian folder" → Set `delivery.obsidianFolder` in config.json
+- "Stop saving to Obsidian" → Remove `delivery.obsidianFolder` from config.json
 
 ### Prompt Changes
 When a user wants to customize how their digest sounds, copy the relevant prompt

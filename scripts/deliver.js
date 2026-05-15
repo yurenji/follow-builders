@@ -4,7 +4,8 @@
 // Follow Builders — Delivery Script
 // ============================================================================
 // Sends a digest to the user via their chosen delivery method.
-// Supports: Telegram bot, Email (via Resend), or stdout (default).
+// Supports: Telegram bot, Email (via Resend), stdout (default), and
+// optional Obsidian vault save (can be combined with any method).
 //
 // Usage:
 //   echo "digest text" | node deliver.js
@@ -18,11 +19,13 @@
 //   - "telegram": sends via Telegram Bot API (needs TELEGRAM_BOT_TOKEN + chat ID)
 //   - "email": sends via Resend API (needs RESEND_API_KEY + email address)
 //   - "stdout" (default): just prints to terminal
+//   - obsidianFolder: optional, saves digest as YYYY-MM-DD.md (or YYYY-MM-DD_02.md
+//     etc. if duplicate) in the specified Obsidian vault folder
 // ============================================================================
 
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { homedir } from 'os';
 import { config as loadEnv } from 'dotenv';
 
@@ -149,6 +152,35 @@ async function sendEmail(text, apiKey, toEmail) {
   }
 }
 
+// -- Obsidian Save -----------------------------------------------------------
+
+// Saves the digest as a markdown file in the user's Obsidian vault folder.
+// Filename: YYYY-MM-DD.md, or YYYY-MM-DD_02.md, YYYY-MM-DD_03.md, etc. if duplicate.
+async function saveToObsidian(text, folderPath) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const baseName = today;
+
+  // Check for existing files with the same date prefix
+  let suffix = '';
+  if (existsSync(join(folderPath, `${baseName}.md`))) {
+    const files = await readdir(folderPath);
+    const pattern = new RegExp(`^${baseName}(?:_(\\d{2}))?\\.md$`);
+    let maxNum = 1;
+    for (const f of files) {
+      const m = f.match(pattern);
+      if (m) {
+        const num = m[1] ? parseInt(m[1], 10) : 1;
+        if (num >= maxNum) maxNum = num + 1;
+      }
+    }
+    suffix = `_${String(maxNum).padStart(2, '0')}`;
+  }
+
+  const filePath = join(folderPath, `${baseName}${suffix}.md`);
+  await writeFile(filePath, text, 'utf-8');
+  return filePath;
+}
+
 // -- Main --------------------------------------------------------------------
 
 async function main() {
@@ -203,6 +235,24 @@ async function main() {
         // Just print to terminal — the agent or OpenClaw handles delivery
         console.log(digestText);
         break;
+    }
+
+    // Optional Obsidian save (can be combined with any delivery method)
+    if (delivery.obsidianFolder) {
+      try {
+        const savedPath = await saveToObsidian(digestText, delivery.obsidianFolder);
+        console.log(JSON.stringify({
+          status: 'ok',
+          method: 'obsidian',
+          message: `Digest saved to ${savedPath}`
+        }));
+      } catch (err) {
+        console.log(JSON.stringify({
+          status: 'error',
+          method: 'obsidian',
+          message: `Failed to save to Obsidian: ${err.message}`
+        }));
+      }
     }
   } catch (err) {
     console.log(JSON.stringify({
